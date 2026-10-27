@@ -1,1 +1,65 @@
+# MV pfsense
+En Interfaces -> Assignments
+Selecciona la red global (WAM):
+	* Configuraciones por defecto
+Selecciona la primera red privada:
+	* Type: static IPv4
+	* LAN address: 192.168.10.1
+	* Mascara: /24 (255.255.255.0)
+	* IPv4 Upstream Gateway: None
+	* DHCPv4: enable
+Activar la red segunda red privada, desde un navegador en una mv temporal:
+	* sudo ifconfig eth0 192.168.10.10 netmask 255.255.255.0
+	* Habilitar el uso de OPT1.
+Selecciona la segunda red privada:
+        * Type: static IPv4
+        * LAN address: 192.168.20.1
+        * Mascara: /24 (255.255.255.0)
+        * IPv4 Upstream Gateway: None
+        * DHCPv4: enable
 
+# MV ubuntu (devices IoT)
+
+## Instalacion docker engine
+sudo apt update
+sudo apt install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl enable --now docker
+sudo docker run --rm hello-world
+sudo ifconfig eth0 192.168.10.10 netmask 255.255.255.0
+
+## Configuracion inicial  antes de iniciar - docker compose
+cd ~/architecture
+sudo docker compose config -q 
+sudo docker compose build iot
+sudo docker compose pull mosquitto captura
+sudo docker compose up -d --scale iot=30
+### comprobacion de funcionamiento
+sudo docker compose ps
+sudo docker compose ps --status running --services
+sudo docker compose ps --status running --format json \
+  | python3 -c '
+import json
+import sys
+
+containers = [json.loads(line) for line in sys.stdin if line.strip()]
+devices = [
+    c for c in containers
+    if c.get("Service") == "iot"
+]
+
+print(f"Dispositivos IoT en ejecución: {len(devices)}")
+'
